@@ -6,6 +6,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.StringReader;
@@ -74,6 +75,7 @@ import org.bukkit.craftbukkit.potion.CraftPotionType;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.CreativeCategory;
 import org.bukkit.inventory.EquipmentSlot;
@@ -82,6 +84,7 @@ import org.bukkit.material.MaterialData;
 import org.bukkit.plugin.InvalidPluginException;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.potion.PotionType;
+import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings("deprecation")
 public final class CraftMagicNumbers implements UnsafeValues {
@@ -639,6 +642,10 @@ public final class CraftMagicNumbers implements UnsafeValues {
 
     @Override
     public byte[] serializeEntity(org.bukkit.entity.Entity entity, EntitySerializationFlag... serializationFlags) {
+        return serializeNbtToBytes(serializeEntityToNbt(entity, serializationFlags));
+    }
+
+    private CompoundTag serializeEntityToNbt(org.bukkit.entity.Entity entity, EntitySerializationFlag... serializationFlags) {
         Preconditions.checkNotNull(entity, "null cannot be serialized");
         Preconditions.checkArgument(entity instanceof CraftEntity, "Only CraftEntities can be serialized");
 
@@ -691,7 +698,27 @@ public final class CraftMagicNumbers implements UnsafeValues {
                 throw new IllegalArgumentException("Couldn't serialize entity");
             }
         }
-        return serializeNbtToBytes(compound);
+        return compound;
+    }
+
+    @Override
+    public @NotNull JsonObject serializeEntityAsJson(@NotNull final Entity entity, final @NotNull EntitySerializationFlag... serializationFlags) {
+        Preconditions.checkArgument(entity != null, "entity must not be null");
+
+        final CompoundTag nbt = serializeEntityToNbt(entity, serializationFlags);
+        nbt.putInt("DataVersion", getDataVersion());
+
+        return NbtOps.INSTANCE.convertTo(JsonOps.INSTANCE, nbt).getAsJsonObject();
+    }
+
+    public @NotNull Entity deserializeEntityFromJson(@NotNull JsonObject object, @NotNull World world, boolean preserveUUID, boolean preservePassengers) {
+        Preconditions.checkArgument(object != null, "json object must not be null");
+        Preconditions.checkArgument(world != null, "world must not be null");
+
+        final CompoundTag tag = JsonOps.INSTANCE.convertTo(NbtOps.INSTANCE, object)
+            .asCompound().orElseThrow(() -> new IllegalStateException("Provided JSON object is (somehow) not a compound tag."));
+
+        return deserializeEntityFromNbt(tag, world, preserveUUID, preservePassengers);
     }
 
     @Override
@@ -699,7 +726,10 @@ public final class CraftMagicNumbers implements UnsafeValues {
         Preconditions.checkNotNull(data, "null cannot be deserialized");
         Preconditions.checkArgument(data.length > 0, "Cannot deserialize empty data");
 
-        CompoundTag compound = deserializeNbtFromBytes(data);
+        return deserializeEntityFromNbt(deserializeNbtFromBytes(data), world, preserveUUID, preservePassengers);
+    }
+
+    private org.bukkit.entity.Entity deserializeEntityFromNbt(CompoundTag compound, World world, boolean preserveUUID, boolean preservePassengers) {
         int dataVersion = compound.getIntOr("DataVersion", 0);
         compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion, this.getDataVersion()); // Paper - possibly use dataconverter
         if (!preservePassengers) {

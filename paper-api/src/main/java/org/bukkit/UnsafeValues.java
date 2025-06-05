@@ -1,6 +1,7 @@
 package org.bukkit;
 
 import com.google.common.collect.Multimap;
+import com.google.gson.JsonObject;
 import io.papermc.paper.entity.EntitySerializationFlag;
 import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.advancement.Advancement;
@@ -221,6 +222,8 @@ public interface UnsafeValues {
      */
     byte @NotNull [] serializeEntity(@NotNull Entity entity, @NotNull EntitySerializationFlag... serializationFlags);
 
+    @NotNull JsonObject serializeEntityAsJson(@NotNull Entity entity, @NotNull EntitySerializationFlag... serializationFlags);
+
     /**
      * Deserializes the entity from data.
      * <br>The entity's {@link java.util.UUID} as well as passengers will not be preserved.
@@ -270,6 +273,16 @@ public interface UnsafeValues {
      * @since 1.21.4
      */
     @NotNull Entity deserializeEntity(byte @NotNull [] data, @NotNull World world, boolean preserveUUID, boolean preservePassengers);
+
+    default @NotNull Entity deserializeEntityFromJson(@NotNull JsonObject object, @NotNull World world) {
+        return deserializeEntityFromJson(object, world, false);
+    }
+
+    default @NotNull Entity deserializeEntityFromJson(@NotNull JsonObject object, @NotNull World world, boolean preserveUUID) {
+        return deserializeEntityFromJson(object, world, false, false);
+    }
+
+    @NotNull Entity deserializeEntityFromJson(@NotNull JsonObject object, @NotNull World world, boolean preserveUUID, boolean preservePassengers);
 
     /**
      * Creates and returns the next EntityId available.
