@@ -140,7 +140,7 @@ dependencies {
     runtimeOnly("org.xerial:sqlite-jdbc:3.49.1.0")
     runtimeOnly("com.mysql:mysql-connector-j:9.2.0")
     runtimeOnly("com.lmax:disruptor:3.4.4")
-    implementation("com.googlecode.json-simple:json-simple:1.1.1") { // change to runtimeOnly once Timings is removed
+    runtimeOnly("com.googlecode.json-simple:json-simple:1.1.1") {
         isTransitive = false // includes junit
     }
 
